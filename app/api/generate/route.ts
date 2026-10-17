@@ -45,7 +45,14 @@ Option 3 (Call-To-Action Focused):
 [Provide a descriptive, high-quality prompt in English suitable for Midjourney/DALL-E 3 that visually captures the concept of this post. Include style, lighting, mood, and composition suggestions.]`;
 
     let generatedText = '';
-    const modelsToTry = ['gemini-2.0-flash', 'gemini-flash-latest'];
+    
+    // Multi-model strategy to automatically skip temporary 503 high-demand errors
+    const modelsToTry = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+      'gemini-flash-latest'
+    ];
     let lastErrorDetails = '';
 
     for (const modelName of modelsToTry) {
@@ -57,7 +64,7 @@ Option 3 (Call-To-Action Focused):
 
         if (response && response.text) {
           generatedText = response.text;
-          break;
+          break; // Stop loop immediately once a working model responds
         }
       } catch (err: any) {
         console.warn(`Failed with model ${modelName}:`, err?.message || err);
@@ -67,8 +74,8 @@ Option 3 (Call-To-Action Focused):
 
     if (!generatedText) {
       return NextResponse.json(
-        { error: `Gemini API Error: ${lastErrorDetails}` },
-        { status: 500 }
+        { error: `The AI service is temporarily experiencing heavy traffic. Please click Generate again in a few seconds. Details: ${lastErrorDetails}` },
+        { status: 503 }
       );
     }
 
