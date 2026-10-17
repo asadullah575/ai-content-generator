@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `You are an expert social media manager and viral content creator.
-Generate 3 distinct, engaging social media caption options tailored for ${platform || 'Instagram'}.
+Generate 3 distinct, engaging social media caption options tailored for ${platform || 'Facebook'}.
 
 Target Language: Write the ENTIRE output strictly in ${language || 'English'}.
 Topic / Core Message: ${topic}
@@ -36,8 +36,10 @@ Requirements:
 - Format with clear line breaks so it is easily readable.`;
 
     let generatedText = '';
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-    let lastError = null;
+    
+    // Primary model and backup fallback models
+    const modelsToTry = ['gemini-2.0-flash', 'gemini-flash-latest'];
+    let lastErrorDetails = '';
 
     for (const modelName of modelsToTry) {
       try {
@@ -52,13 +54,14 @@ Requirements:
         }
       } catch (err: any) {
         console.warn(`Failed with model ${modelName}:`, err?.message || err);
-        lastError = err;
+        lastErrorDetails = err?.message || JSON.stringify(err);
       }
     }
 
     if (!generatedText) {
-      throw new Error(
-        lastError?.message || 'Failed to generate captions from Gemini models.'
+      return NextResponse.json(
+        { error: `Gemini API Error: ${lastErrorDetails}` },
+        { status: 500 }
       );
     }
 
