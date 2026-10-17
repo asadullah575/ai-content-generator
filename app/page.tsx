@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Copy, Check, Sparkles, AlertCircle, Globe } from 'lucide-react';
 
 export default function Home() {
   const [topic, setTopic] = useState('');
   const [platform, setPlatform] = useState('Instagram');
   const [tone, setTone] = useState('Casual & Relatable');
+  const [language, setLanguage] = useState('English');
   const [targetAudience, setTargetAudience] = useState('');
   const [campaignGoal, setCampaignGoal] = useState('Drive Clicks / Sales');
   const [captions, setCaptions] = useState<string>('');
@@ -14,7 +15,6 @@ export default function Home() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Platform character limits guide
   const platformLimits: Record<string, number> = {
     Instagram: 2200,
     Twitter: 280,
@@ -37,7 +37,7 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, platform, tone, targetAudience, campaignGoal }),
+        body: JSON.stringify({ topic, platform, tone, language, targetAudience, campaignGoal }),
       });
 
       const data = await response.json();
@@ -71,7 +71,7 @@ export default function Home() {
             Captioniq
           </h1>
           <p className="text-slate-400 text-sm md:text-base">
-            Create targeted, viral social media captions instantly
+            Create targeted, viral social media captions instantly in any language
           </p>
         </div>
 
@@ -84,14 +84,14 @@ export default function Home() {
             <input
               type="text"
               required
-              placeholder="e.g. launching a new productivity app for founders"
+              placeholder="e.g. launching a new organic skincare line"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
                 Platform
@@ -99,7 +99,7 @@ export default function Home() {
               <select
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors text-sm"
               >
                 <option value="Instagram">Instagram</option>
                 <option value="Twitter">X / Twitter</option>
@@ -116,13 +116,34 @@ export default function Home() {
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors text-sm"
               >
                 <option value="Casual & Relatable">Casual & Relatable</option>
                 <option value="Professional & Authoritative">Professional & Authoritative</option>
                 <option value="Witty & Humorous">Witty & Humorous</option>
                 <option value="Urgent & Promotional">Urgent & Promotional</option>
                 <option value="Inspirational & Storytelling">Inspirational & Storytelling</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5 text-purple-400" />
+                Language
+              </label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors text-sm"
+              >
+                <option value="English">English</option>
+                <option value="Spanish">Spanish</option>
+                <option value="French">French</option>
+                <option value="German">German</option>
+                <option value="Urdu">Urdu</option>
+                <option value="Hindi">Hindi</option>
+                <option value="Arabic">Arabic</option>
+                <option value="Japanese">Japanese</option>
               </select>
             </div>
           </div>
@@ -134,7 +155,7 @@ export default function Home() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Small business owners"
+                placeholder="e.g. Beauty enthusiasts"
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
@@ -185,20 +206,18 @@ export default function Home() {
           </div>
         )}
 
-        {/* Generated Output Area with Copy Button & Character Counter */}
+        {/* Generated Output Area */}
         {captions && (
           <div className="space-y-3 pt-4 border-t border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Generated Content
+                Generated Content ({language})
               </span>
               <div className="flex items-center gap-4">
-                {/* Character Counter */}
                 <span className={`text-xs font-medium ${captions.length > currentLimit ? 'text-red-400' : 'text-slate-400'}`}>
                   {captions.length} / {currentLimit} chars
                 </span>
 
-                {/* One-Click Copy Button */}
                 <button
                   onClick={copyToClipboard}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-lg transition-colors"
