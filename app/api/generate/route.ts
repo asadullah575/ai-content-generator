@@ -20,24 +20,31 @@ export async function POST(req: Request) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const prompt = `You are an expert social media manager and viral content creator.
-Generate 3 distinct, engaging social media caption options tailored for ${platform || 'Facebook'}.
+    const prompt = `You are an expert social media manager, visual creative director, and viral content strategist.
+Generate 3 distinct social media caption options along with 1 matching AI Image Prompt tailored for ${platform || 'Instagram'}.
 
-Target Language: Write the ENTIRE output strictly in ${language || 'English'}.
+Target Language for Captions: Write the entire caption section in ${language || 'English'}.
 Topic / Core Message: ${topic}
 Desired Tone: ${tone || 'Casual & Relatable'}
 Target Audience: ${targetAudience || 'General Audience'}
 Campaign Goal: ${campaignGoal || 'Drive Engagement'}
 
-Requirements:
-- Provide 3 structured variations (e.g. Option 1: Short & Punchy, Option 2: Storytelling, Option 3: Call-To-Action focused).
-- Include relevant emojis.
-- Include 3 to 5 targeted hashtags for ${platform}.
-- Format with clear line breaks so it is easily readable.`;
+Format your response strictly using this structure:
+
+=== CAPTIONS ===
+Option 1 (Short & Punchy):
+[Caption text + emojis + hashtags]
+
+Option 2 (Storytelling):
+[Caption text + emojis + hashtags]
+
+Option 3 (Call-To-Action Focused):
+[Caption text + emojis + hashtags]
+
+=== AI IMAGE PROMPT ===
+[Provide a descriptive, high-quality prompt in English suitable for Midjourney/DALL-E 3 that visually captures the concept of this post. Include style, lighting, mood, and composition suggestions.]`;
 
     let generatedText = '';
-    
-    // Primary model and backup fallback models
     const modelsToTry = ['gemini-2.0-flash', 'gemini-flash-latest'];
     let lastErrorDetails = '';
 
