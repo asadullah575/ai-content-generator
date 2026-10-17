@@ -36,8 +36,6 @@ Requirements:
 - Format with clear line breaks so it is easily readable.`;
 
     let generatedText = '';
-
-    // Attempt generation with recommended models
     const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     let lastError = null;
 
