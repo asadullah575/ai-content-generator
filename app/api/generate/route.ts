@@ -42,11 +42,9 @@ Option 3 (Call-To-Action Focused):
 [Caption text + emojis + hashtags]
 
 === AI IMAGE PROMPT ===
-[Provide a descriptive, high-quality prompt in English suitable for Midjourney/DALL-E 3 that visually captures the concept of this post. Include style, lighting, mood, and composition suggestions.]`;
+[Provide a descriptive, high-quality prompt in English suitable for Midjourney/DALL-E 3 that visually captures the concept of this post. Include style, lighting, mood, color palette, and composition details.]`;
 
     let generatedText = '';
-    
-    // Multi-model strategy to automatically skip temporary 503 high-demand errors
     const modelsToTry = [
       'gemini-2.5-flash',
       'gemini-2.0-flash',
@@ -64,7 +62,7 @@ Option 3 (Call-To-Action Focused):
 
         if (response && response.text) {
           generatedText = response.text;
-          break; // Stop loop immediately once a working model responds
+          break;
         }
       } catch (err: any) {
         console.warn(`Failed with model ${modelName}:`, err?.message || err);
@@ -74,7 +72,7 @@ Option 3 (Call-To-Action Focused):
 
     if (!generatedText) {
       return NextResponse.json(
-        { error: `The AI service is temporarily experiencing heavy traffic. Please click Generate again in a few seconds. Details: ${lastErrorDetails}` },
+        { error: `The AI service is temporarily experiencing heavy traffic. Details: ${lastErrorDetails}` },
         { status: 503 }
       );
     }
