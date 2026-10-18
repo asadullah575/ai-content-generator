@@ -45,6 +45,8 @@ Option 3 (Call-To-Action Focused):
 [Provide a descriptive, high-quality prompt in English suitable for Midjourney/DALL-E 3 that visually captures the concept of this post. Include style, lighting, mood, color palette, and composition details.]`;
 
     let generatedText = '';
+    
+    // Failover sequence to instantly bypass 503 high demand errors
     const modelsToTry = [
       'gemini-2.5-flash',
       'gemini-2.0-flash',
