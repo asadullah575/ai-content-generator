@@ -46,7 +46,7 @@ Option 3 (Call-To-Action Focused):
 
     let generatedText = '';
     
-    // Failover sequence to instantly bypass 503 high demand errors
+    // Tries models in sequence to bypass temporary 503 high-demand errors
     const modelsToTry = [
       'gemini-2.5-flash',
       'gemini-2.0-flash',
@@ -64,7 +64,7 @@ Option 3 (Call-To-Action Focused):
 
         if (response && response.text) {
           generatedText = response.text;
-          break;
+          break; // Model succeeded! Exit loop.
         }
       } catch (err: any) {
         console.warn(`Failed with model ${modelName}:`, err?.message || err);
