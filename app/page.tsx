@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Sparkles, AlertCircle, Globe } from 'lucide-react';
+import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon } from 'lucide-react';
 
 export default function Home() {
   const [topic, setTopic] = useState('');
@@ -10,10 +10,11 @@ export default function Home() {
   const [language, setLanguage] = useState('English');
   const [targetAudience, setTargetAudience] = useState('');
   const [campaignGoal, setCampaignGoal] = useState('Drive Clicks / Sales');
-  const [captions, setCaptions] = useState<string>('');
+  const [resultText, setResultText] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copiedCaption, setCopiedCaption] = useState(false);
+  const [copiedImagePrompt, setCopiedImagePrompt] = useState(false);
 
   const platformLimits: Record<string, number> = {
     Instagram: 2200,
@@ -25,13 +26,22 @@ export default function Home() {
 
   const currentLimit = platformLimits[platform] || 2200;
 
+  // Split response into Captions and AI Image Prompt sections
+  const captionSection = resultText.includes('=== AI IMAGE PROMPT ===')
+    ? resultText.split('=== AI IMAGE PROMPT ===')[0].replace('=== CAPTIONS ===', '').trim()
+    : resultText;
+
+  const imagePromptSection = resultText.includes('=== AI IMAGE PROMPT ===')
+    ? resultText.split('=== AI IMAGE PROMPT ===')[1].trim()
+    : '';
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
 
     setLoading(true);
     setError('');
-    setCaptions('');
+    setResultText('');
 
     try {
       const response = await fetch('/api/generate', {
@@ -46,19 +56,26 @@ export default function Home() {
         throw new Error(data.error || 'Failed to generate content');
       }
 
-      setCaptions(data.result);
+      setResultText(data.result);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please check your API key.');
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = () => {
-    if (!captions) return;
-    navigator.clipboard.writeText(captions);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyCaptions = () => {
+    if (!captionSection) return;
+    navigator.clipboard.writeText(captionSection);
+    setCopiedCaption(true);
+    setTimeout(() => setCopiedCaption(false), 2000);
+  };
+
+  const copyImagePrompt = () => {
+    if (!imagePromptSection) return;
+    navigator.clipboard.writeText(imagePromptSection);
+    setCopiedImagePrompt(true);
+    setTimeout(() => setCopiedImagePrompt(false), 2000);
   };
 
   return (
@@ -71,7 +88,7 @@ export default function Home() {
             Captioniq
           </h1>
           <p className="text-slate-400 text-sm md:text-base">
-            Create targeted, viral social media captions instantly in any language
+            Create targeted social media captions & AI image prompts instantly
           </p>
         </div>
 
@@ -84,7 +101,7 @@ export default function Home() {
             <input
               type="text"
               required
-              placeholder="e.g. launching a new organic skincare line"
+              placeholder="e.g. launching an organic tea brand"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
@@ -155,7 +172,7 @@ export default function Home() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Beauty enthusiasts"
+                placeholder="e.g. Wellness enthusiasts"
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-purple-500 transition-colors"
@@ -187,12 +204,12 @@ export default function Home() {
             {loading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Generating Captions...
+                Generating Captions & Image Prompt...
               </>
             ) : (
               <>
                 <Sparkles className="w-5 h-5" />
-                Generate Captions
+                Generate Captions & Image Prompt
               </>
             )}
           </button>
@@ -206,23 +223,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* Generated Output Area */}
-        {captions && (
+        {/* Generated Captions */}
+        {captionSection && (
           <div className="space-y-3 pt-4 border-t border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Generated Content ({language})
+                Captions ({language})
               </span>
               <div className="flex items-center gap-4">
-                <span className={`text-xs font-medium ${captions.length > currentLimit ? 'text-red-400' : 'text-slate-400'}`}>
-                  {captions.length} / {currentLimit} chars
+                <span className={`text-xs font-medium ${captionSection.length > currentLimit ? 'text-red-400' : 'text-slate-400'}`}>
+                  {captionSection.length} / {currentLimit} chars
                 </span>
 
                 <button
-                  onClick={copyToClipboard}
+                  onClick={copyCaptions}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-lg transition-colors"
                 >
-                  {copied ? (
+                  {copiedCaption ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-green-400" />
                       <span className="text-green-400">Copied!</span>
@@ -230,15 +247,48 @@ export default function Home() {
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copy
+                      Copy Captions
                     </>
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-200 text-sm whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
-              {captions}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-200 text-sm whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">
+              {captionSection}
+            </div>
+          </div>
+        )}
+
+        {/* AI Image Prompt Section */}
+        {imagePromptSection && (
+          <div className="space-y-3 pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="w-4 h-4" />
+                AI Image Prompt (Midjourney / DALL-E)
+              </span>
+
+              <button
+                onClick={copyImagePrompt}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-pink-300 rounded-lg transition-colors"
+              >
+                {copiedImagePrompt ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-green-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy Image Prompt
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="bg-purple-950/30 border border-purple-900/50 rounded-xl p-4 text-purple-200 text-sm leading-relaxed">
+              {imagePromptSection}
             </div>
           </div>
         )}
