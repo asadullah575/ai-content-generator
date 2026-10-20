@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon, History, Trash2, ChevronRight, Hash, Smile, Megaphone, Crown, Zap } from 'lucide-react';
+import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon, History, Trash2, ChevronRight, Hash, Smile, Megaphone, Crown, Zap, Download, FileText } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -41,6 +41,14 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
+    // Check URL parameters for successful Stripe checkout
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      setIsPro(true);
+      localStorage.setItem('captioniq_is_pro', 'true');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // Load history
     const savedHistory = localStorage.getItem('captioniq_history');
     if (savedHistory) {
@@ -107,12 +115,62 @@ export default function Home() {
     localStorage.removeItem('captioniq_history');
   };
 
-  const handleUpgradeToPro = () => {
-    // In production, this would redirect to your Stripe Checkout URL (e.g. https://buy.stripe.com/your_link_id)
-    // For demo purposes, we simulate activating Pro:
-    setIsPro(true);
-    localStorage.setItem('captioniq_is_pro', 'true');
-    alert('🎉 Simulated Stripe Checkout Successful! Welcome to Captioniq Pro.');
+  const exportHistoryToCSV = () => {
+    if (history.length === 0) return;
+
+    const headers = ['Timestamp', 'Platform', 'Language', 'Topic', 'Captions', 'AI Image Prompt'];
+    const rows = history.map(item => [
+      `"${item.timestamp}"`,
+      `"${item.platform}"`,
+      `"${item.language}"`,
+      `"${item.topic.replace(/"/g, '""')}"`,
+      `"${item.captions.replace(/"/g, '""')}"`,
+      `"${item.imagePrompt.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `captioniq_history_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportHistoryToTXT = () => {
+    if (history.length === 0) return;
+
+    const textContent = history.map((item, index) => {
+      return `--- ITEM ${index + 1} (${item.timestamp}) ---\nPlatform: ${item.platform}\nLanguage: ${item.language}\nTopic: ${item.topic}\n\n[CAPTIONS]\n${item.captions}\n\n[AI IMAGE PROMPT]\n${item.imagePrompt}\n\n`;
+    }).join('\n========================================\n\n');
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `captioniq_history_${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleUpgradeToPro = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/checkout', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Checkout redirect failed');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Payment initiation failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -154,7 +212,6 @@ export default function Home() {
       setResultText(data.result);
       saveToHistory(data.result, topic, platform, language);
 
-      // Deduct credit if not Pro
       if (!isPro) {
         const newCredits = credits - 1;
         setCredits(newCredits);
@@ -187,9 +244,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-x-hidden">
       
-      {/* Top Bar Controls (History & Credits / Pro) */}
+      {/* Top Bar Controls */}
       <div className="fixed top-4 right-4 z-20 flex items-center gap-3">
-        {/* Credits / Pro Badge */}
         <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 shadow-xl text-xs font-medium">
           {isPro ? (
             <span className="flex items-center gap-1 text-amber-400 font-bold">
@@ -202,7 +258,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* History Toggle Button */}
         <button
           onClick={() => setShowHistory(!showHistory)}
           className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white hover:border-purple-500 shadow-xl transition-all"
@@ -238,6 +293,24 @@ export default function Home() {
               </button>
             </div>
           </div>
+
+          {/* Export Options */}
+          {history.length > 0 && (
+            <div className="flex items-center gap-2 pb-2">
+              <button
+                onClick={exportHistoryToCSV}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-purple-300 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </button>
+              <button
+                onClick={exportHistoryToTXT}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-pink-300 transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5" /> Export TXT
+              </button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {history.length === 0 ? (
