@@ -1,7 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon, History, Trash2, ChevronRight } from 'lucide-react';
+
+interface HistoryItem {
+  id: string;
+  topic: string;
+  platform: string;
+  language: string;
+  captions: string;
+  imagePrompt: string;
+  timestamp: string;
+}
 
 export default function Home() {
   const [topic, setTopic] = useState('');
@@ -16,6 +26,22 @@ export default function Home() {
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedImagePrompt, setCopiedImagePrompt] = useState(false);
 
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load History from LocalStorage on initial render
+  useEffect(() => {
+    const saved = localStorage.getItem('captioniq_history');
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse history:', e);
+      }
+    }
+  }, []);
+
   const platformLimits: Record<string, number> = {
     Instagram: 2200,
     Twitter: 280,
@@ -26,14 +52,42 @@ export default function Home() {
 
   const currentLimit = platformLimits[platform] || 2200;
 
-  // Split response into Captions and AI Image Prompt sections
-  const captionSection = resultText.includes('=== AI IMAGE PROMPT ===')
-    ? resultText.split('=== AI IMAGE PROMPT ===')[0].replace('=== CAPTIONS ===', '').trim()
-    : resultText;
+  // Helper to split AI response into Captions and Image Prompt
+  const parseResponse = (text: string) => {
+    const caps = text.includes('=== AI IMAGE PROMPT ===')
+      ? text.split('=== AI IMAGE PROMPT ===')[0].replace('=== CAPTIONS ===', '').trim()
+      : text;
 
-  const imagePromptSection = resultText.includes('=== AI IMAGE PROMPT ===')
-    ? resultText.split('=== AI IMAGE PROMPT ===')[1].trim()
-    : '';
+    const img = text.includes('=== AI IMAGE PROMPT ===')
+      ? text.split('=== AI IMAGE PROMPT ===')[1].trim()
+      : '';
+
+    return { caps, img };
+  };
+
+  const { caps: captionSection, img: imagePromptSection } = parseResponse(resultText);
+
+  const saveToHistory = (rawText: string, topicInput: string, platformInput: string, langInput: string) => {
+    const { caps, img } = parseResponse(rawText);
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      topic: topicInput,
+      platform: platformInput,
+      language: langInput,
+      captions: caps,
+      imagePrompt: img,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updated = [newItem, ...history].slice(0, 10); // Keep last 10 generations
+    setHistory(updated);
+    localStorage.setItem('captioniq_history', JSON.stringify(updated));
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem('captioniq_history');
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +111,7 @@ export default function Home() {
       }
 
       setResultText(data.result);
+      saveToHistory(data.result, topic, platform, language);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -64,22 +119,96 @@ export default function Home() {
     }
   };
 
-  const copyCaptions = () => {
-    if (!captionSection) return;
-    navigator.clipboard.writeText(captionSection);
+  const copyCaptions = (text?: string) => {
+    const target = text || captionSection;
+    if (!target) return;
+    navigator.clipboard.writeText(target);
     setCopiedCaption(true);
     setTimeout(() => setCopiedCaption(false), 2000);
   };
 
-  const copyImagePrompt = () => {
-    if (!imagePromptSection) return;
-    navigator.clipboard.writeText(imagePromptSection);
+  const copyImagePrompt = (text?: string) => {
+    const target = text || imagePromptSection;
+    if (!target) return;
+    navigator.clipboard.writeText(target);
     setCopiedImagePrompt(true);
     setTimeout(() => setCopiedImagePrompt(false), 2000);
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 md:p-8">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-x-hidden">
+      
+      {/* History Toggle Button (Top Right) */}
+      <button
+        onClick={() => setShowHistory(!showHistory)}
+        className="fixed top-4 right-4 z-20 flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white hover:border-purple-500 shadow-xl transition-all"
+      >
+        <History className="w-4 h-4 text-purple-400" />
+        <span className="text-sm font-medium">History ({history.length})</span>
+      </button>
+
+      {/* History Drawer Sidebar */}
+      {showHistory && (
+        <div className="fixed inset-y-0 right-0 z-30 w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 shadow-2xl flex flex-col space-y-4 animate-in slide-in-from-right duration-200">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <History className="w-5 h-5 text-purple-400" />
+              Generation History
+            </h2>
+            <div className="flex items-center gap-2">
+              {history.length > 0 && (
+                <button
+                  onClick={clearHistory}
+                  className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
+                  title="Clear History"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowHistory(false)}
+                className="p-1.5 text-slate-400 hover:text-white transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {history.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-8">No saved generations yet.</p>
+            ) : (
+              history.map((item) => (
+                <div key={item.id} className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span className="font-semibold text-purple-400">{item.platform} • {item.language}</span>
+                    <span>{item.timestamp}</span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-200 line-clamp-1">"{item.topic}"</p>
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-800/60">
+                    <button
+                      onClick={() => copyCaptions(item.captions)}
+                      className="text-xs text-purple-300 hover:underline flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" /> Copy Captions
+                    </button>
+                    {item.imagePrompt && (
+                      <button
+                        onClick={() => copyImagePrompt(item.imagePrompt)}
+                        className="text-xs text-pink-300 hover:underline flex items-center gap-1 ml-auto"
+                      >
+                        <ImageIcon className="w-3 h-3" /> Copy Prompt
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Generator Form */}
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -236,7 +365,7 @@ export default function Home() {
                 </span>
 
                 <button
-                  onClick={copyCaptions}
+                  onClick={() => copyCaptions()}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-lg transition-colors"
                 >
                   {copiedCaption ? (
@@ -270,7 +399,7 @@ export default function Home() {
               </span>
 
               <button
-                onClick={copyImagePrompt}
+                onClick={() => copyImagePrompt()}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-pink-300 rounded-lg transition-colors"
               >
                 {copiedImagePrompt ? (
