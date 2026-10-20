@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon, History, Trash2, ChevronRight } from 'lucide-react';
+import { Copy, Check, Sparkles, AlertCircle, Globe, Image as ImageIcon, History, Trash2, ChevronRight, Hash, Smile, Megaphone, Crown, Zap } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -20,24 +20,43 @@ export default function Home() {
   const [language, setLanguage] = useState('English');
   const [targetAudience, setTargetAudience] = useState('');
   const [campaignGoal, setCampaignGoal] = useState('Drive Clicks / Sales');
+
+  // Formatting Toggles
+  const [includeEmojis, setIncludeEmojis] = useState(true);
+  const [includeHashtags, setIncludeHashtags] = useState(true);
+  const [includeCTA, setIncludeCTA] = useState(true);
+
   const [resultText, setResultText] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedImagePrompt, setCopiedImagePrompt] = useState(false);
 
+  // Credits & Subscription State
+  const [credits, setCredits] = useState<number>(5);
+  const [isPro, setIsPro] = useState<boolean>(false);
+
   // History State
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Load History from LocalStorage on initial render
   useEffect(() => {
-    const saved = localStorage.getItem('captioniq_history');
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse history:', e);
+    // Load history
+    const savedHistory = localStorage.getItem('captioniq_history');
+    if (savedHistory) {
+      try { setHistory(JSON.parse(savedHistory)); } catch (e) {}
+    }
+
+    // Load credits or pro status
+    const savedPro = localStorage.getItem('captioniq_is_pro');
+    if (savedPro === 'true') {
+      setIsPro(true);
+    } else {
+      const savedCredits = localStorage.getItem('captioniq_credits');
+      if (savedCredits !== null) {
+        setCredits(parseInt(savedCredits, 10));
+      } else {
+        localStorage.setItem('captioniq_credits', '5');
       }
     }
   }, []);
@@ -52,7 +71,6 @@ export default function Home() {
 
   const currentLimit = platformLimits[platform] || 2200;
 
-  // Helper to split AI response into Captions and Image Prompt
   const parseResponse = (text: string) => {
     const caps = text.includes('=== AI IMAGE PROMPT ===')
       ? text.split('=== AI IMAGE PROMPT ===')[0].replace('=== CAPTIONS ===', '').trim()
@@ -79,7 +97,7 @@ export default function Home() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const updated = [newItem, ...history].slice(0, 10); // Keep last 10 generations
+    const updated = [newItem, ...history].slice(0, 10);
     setHistory(updated);
     localStorage.setItem('captioniq_history', JSON.stringify(updated));
   };
@@ -89,9 +107,22 @@ export default function Home() {
     localStorage.removeItem('captioniq_history');
   };
 
+  const handleUpgradeToPro = () => {
+    // In production, this would redirect to your Stripe Checkout URL (e.g. https://buy.stripe.com/your_link_id)
+    // For demo purposes, we simulate activating Pro:
+    setIsPro(true);
+    localStorage.setItem('captioniq_is_pro', 'true');
+    alert('🎉 Simulated Stripe Checkout Successful! Welcome to Captioniq Pro.');
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
+
+    if (!isPro && credits <= 0) {
+      setError('You have run out of free generations! Please upgrade to Pro for unlimited usage.');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -101,7 +132,17 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, platform, tone, language, targetAudience, campaignGoal }),
+        body: JSON.stringify({ 
+          topic, 
+          platform, 
+          tone, 
+          language, 
+          targetAudience, 
+          campaignGoal,
+          includeEmojis,
+          includeHashtags,
+          includeCTA
+        }),
       });
 
       const data = await response.json();
@@ -112,6 +153,14 @@ export default function Home() {
 
       setResultText(data.result);
       saveToHistory(data.result, topic, platform, language);
+
+      // Deduct credit if not Pro
+      if (!isPro) {
+        const newCredits = credits - 1;
+        setCredits(newCredits);
+        localStorage.setItem('captioniq_credits', newCredits.toString());
+      }
+
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -138,18 +187,34 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-x-hidden">
       
-      {/* History Toggle Button (Top Right) */}
-      <button
-        onClick={() => setShowHistory(!showHistory)}
-        className="fixed top-4 right-4 z-20 flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white hover:border-purple-500 shadow-xl transition-all"
-      >
-        <History className="w-4 h-4 text-purple-400" />
-        <span className="text-sm font-medium">History ({history.length})</span>
-      </button>
+      {/* Top Bar Controls (History & Credits / Pro) */}
+      <div className="fixed top-4 right-4 z-20 flex items-center gap-3">
+        {/* Credits / Pro Badge */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 shadow-xl text-xs font-medium">
+          {isPro ? (
+            <span className="flex items-center gap-1 text-amber-400 font-bold">
+              <Crown className="w-4 h-4" /> PRO UNLIMITED
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-purple-400">
+              <Zap className="w-3.5 h-3.5" /> {credits} Free Credits Left
+            </span>
+          )}
+        </div>
+
+        {/* History Toggle Button */}
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white hover:border-purple-500 shadow-xl transition-all"
+        >
+          <History className="w-4 h-4 text-purple-400" />
+          <span className="text-sm font-medium">History ({history.length})</span>
+        </button>
+      </div>
 
       {/* History Drawer Sidebar */}
       {showHistory && (
-        <div className="fixed inset-y-0 right-0 z-30 w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 shadow-2xl flex flex-col space-y-4 animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-y-0 right-0 z-30 w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 shadow-2xl flex flex-col space-y-4">
           <div className="flex items-center justify-between pb-4 border-b border-slate-800">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <History className="w-5 h-5 text-purple-400" />
@@ -210,6 +275,25 @@ export default function Home() {
 
       {/* Main Generator Form */}
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
+        
+        {/* Upgrade Banner for Free Users */}
+        {!isPro && (
+          <div className="bg-gradient-to-r from-purple-900/40 via-pink-900/40 to-red-900/40 border border-purple-500/40 rounded-xl p-4 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-amber-400" /> Captioniq Pro
+              </h3>
+              <p className="text-xs text-slate-300">Unlock unlimited generations & advanced features for $9/mo</p>
+            </div>
+            <button
+              onClick={handleUpgradeToPro}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white rounded-lg text-xs font-semibold shadow-md transition-all shrink-0"
+            >
+              Upgrade ($9)
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent flex items-center justify-center gap-2">
@@ -325,9 +409,56 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Formatting Options Toggles */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Formatting Preferences
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setIncludeEmojis(!includeEmojis)}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                  includeEmojis 
+                    ? 'bg-purple-950/60 border-purple-500 text-purple-200' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
+              >
+                <Smile className="w-3.5 h-3.5" />
+                Emojis
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIncludeHashtags(!includeHashtags)}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                  includeHashtags 
+                    ? 'bg-purple-950/60 border-purple-500 text-purple-200' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
+              >
+                <Hash className="w-3.5 h-3.5" />
+                Hashtags
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIncludeCTA(!includeCTA)}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                  includeCTA 
+                    ? 'bg-purple-950/60 border-purple-500 text-purple-200' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                Call-To-Action
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
-            disabled={loading || !topic.trim()}
+            disabled={loading || (!isPro && credits <= 0) || !topic.trim()}
             className="w-full py-3.5 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 rounded-xl font-semibold text-white shadow-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-4"
           >
             {loading ? (
@@ -335,6 +466,8 @@ export default function Home() {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 Generating Captions & Image Prompt...
               </>
+            ) : (!isPro && credits <= 0) ? (
+              <>Out of Free Credits - Upgrade to Pro</>
             ) : (
               <>
                 <Sparkles className="w-5 h-5" />
